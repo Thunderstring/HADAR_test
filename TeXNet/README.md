@@ -1,0 +1,83 @@
+# Reimplement by Jimin
+
+## Dataset descrition
+
+scene 1-10: synthetic image with the size of 1080x1920x54. Only use channels 4:53 to match the data size of scene11. 
+
+scene 11: experimental image of 260x150x49.
+
+`SceneX\groundtruth\eMap`: material emissivity index map, 30 kinds of materials in total. 1080x1920 (scene 1-10), 260x1500 (scene 11)
+
+`SceneX\groundtruth\tMap`: temperature map. 1080x1920 (scene 1-10), 260x1500 (scene 11)
+
+`SceneX\groundtruth\vMap`: texture map? 1080x1920x2 (scene 1-10), 260x1500x2 (scene 11)
+
+`\SceneX\HeatCubes\*_heatcube.mat`: multispectal images
+
+
+## Step 01, Preprocessing data
+
+See `preprocess_data.ipynb`, including data descriptions.
+
+
+
+
+
+# Original README
+# TEXNet
+This page contains the architecture, implementation details, and the code (in PyTorch) for "TeX-Net", a DNN to decompose heat cubes (hyperspectral thermal images) into Temperature, emissivity, and Texture maps.
+
+## Contents
+
+1. [Introduction](#introduction)
+2. [Implementation Details](#Implementation-Details)
+3. [Results and Pre-trained Weights](#Results-and-Pre-trained-Weights)
+4. [Contacts](#contacts)
+
+## Introduction
+
+<p align="center">
+  <img src="https://github.com/FanglinBao/HADAR/blob/main/TeXNet/TeXNet.png" />
+</p>
+
+Architecture of our TeX-Net for inverse TeX decomposition. TeX-Net is physics-inspired for three aspects. Firstly, TeX decomposition of heat cubes relies on both spatial patterns and spectral thermal signatures. This inspires the adoption of spectral and pyramid (spatial) attention layers in the UNet model. Secondly, due to TeX degeneracy, the mathematical structure has to be specified to ensure the uniqueness of inverse mapping, and hence it is essential to learn thermal lighting factors $V$ instead of texture <em>X</em>. That is, TeX-Net cannot be trained end-to-end. Here, α,β and γ are indices of objects, and ν is the wavenumber. X<sub>α</sub> is constructed with <em>V</em> and S<sub>βν</sub> indirectly, where S<sub>βν</sub> is the down-sampled S<sub>αν</sub> to approximate <em>k</em> most significant environmental objects. Thirdly, the material library <em>M</em> and its dimension are key to the network. TeX-Net can either be trained with ground truth <em>T</em>, <em>m</em>, and <em>V</em> in supervised learning, or alternatively, with material library <em>M</em>, Planck's law B<sub>ν</sub>(T<sub>α</sub>), and the mathematical structure of X<sub>αν</sub> in unsupervised learning. In supervised learning, the loss function is a combination of individual losses with regularization hyper-parameters. In unsupervised learning, the loss function defined on the re-constructed heat cube is based on physics models of the heat signal. In practice, a hybrid loss function with T, e, V contributions (50%) in addition to the physics-based loss (50%) is used.
+
+## Implementation Details
+
+### Dependencies
+All the dependencies are included in a .yml file that can be downloaded from the following link:<br />
+[OneDrive](https://purdue0-my.sharepoint.com/:u:/g/personal/baof_purdue_edu/ESd60MOO0j9HnlClvf7IZFgBXnhN1iHLxl0IPoYKa6zHCQ?e=s5IORC)
+
+```
+conda env create -f texnet.yml
+```
+
+### Train
+The following command can be treated as an example to train TeXNet on the HADAR databse
+
+```
+python main.py --ngpus 1 --backbone resnet50 --data_dir ../ --workers 8 --epochs 40000 --checkpoint_dir supervised_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 10 --seed 42
+```
+
+### Validation
+The following command can be treated as an example to validate the trained model
+
+```
+python main.py --ngpus 1 --backbone resnet50 --data_dir ../ --workers 8 --epochs 40000 --checkpoint_dir supervised_check_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 10 --seed 42 --resume (trained model checkpoint) --eval
+```
+
+## Results and Pre-trained Weights
+
+The TeX-Net performance on the HADAR database is shown below.
+
+<p align="center">
+  <img src="https://github.com/FanglinBao/HADAR/blob/main/TeXNet/Fig3.png" />
+</p>
+
+Pre-trained weights and training loss curves are available through the following links:<br />
+
+| Pre-trained weights |  Training loss curves |
+|---|---|
+|[OneDrive](https://purdue0-my.sharepoint.com/:f:/g/personal/baof_purdue_edu/ElbrW3lNLrBGqBkSnxwYyCsBn8drwRriwocKk1L5EssioA?e=tykNhr)|[OneDrive](https://purdue0-my.sharepoint.com/:f:/g/personal/baof_purdue_edu/ElbrW3lNLrBGqBkSnxwYyCsBn8drwRriwocKk1L5EssioA?e=tykNhr)|
+
+## Contacts
