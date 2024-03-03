@@ -13,22 +13,22 @@ class HADARMultipleScenes():
     NUM_CLASS = 30
     """docstring for HADARSegmentation"""
 
-    def __init__(self, root='/media/ljm/Data/HADAR/HADAR_database/',
+    def __init__(self, root='~/workspace/zx/HADAR_database/',
                  split='train', inp_transform=None, target_transform=None,
-                 **kwargs):
+                 **kwargs):     # **kwargs表示用kwargs接收所有参数，并存储成dict
 
-        root = os.path.expanduser(root)
+        root = os.path.expanduser(root)     # os.path.expanduser() 函数用于展开路径中的波浪号 ~，将其替换为当前用户的主目录路径
         # root = os.path.join(root, "HADAR_database")
-        self.randflip = kwargs.get('randflip', False) and split == "train"
+        self.randflip = kwargs.get('randflip', False) and split == "train"      # split代表数据种类?(train, val or test)
         fold = kwargs.get('fold', None)
 
-        print("Fold is", fold, "for split", split)
-
+        print("Fold is", fold, "for split", split)   # 第几个文件夹用来train, val or test
+        # we manually split the database, instead of randomly splitting, to ensure the same diversity of the validation set and training set
         if fold is None:
             train_ids = [f"L_{i:04d}" for i in range(2, 5)]
             train_ids += [f"R_{i:04d}" for i in range(2, 5)]
             val_ids = ["L_0001", "R_0001"] # one fresh sample and one sample from training set.
-            test_ids = ["L_0001", "R_0001"]
+            test_ids = ["L_0001", "R_0001"]  
             # train_exp_ids = train_ids.copy()
             # val_exp_ids = ["L_0001", "R_0001"] # one fresh sample and one sample from training set.
             # test_exp_ids = ["L_0001", "R_0001"]
@@ -110,41 +110,40 @@ class HADARMultipleScenes():
 
         SUBFOLDERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
         SUBFOLDERS = ["Scene"+str(_) for _ in SUBFOLDERS]
-
-        self.S_files = []
+        # 文件名列表，用于后续load数据
+        self.S_files = []       
         self.S_beta_files = []
         self.T_files = []
         self.e_files = []
         self.v_files = []
 
-        for subfolder in SUBFOLDERS:
-            # Scene 11 has only 4 frames, unlike other scenes which have
-            # 5 frames.
+        for subfolder in SUBFOLDERS:    # 把每个Scene的heatcube.mat EnvObj.npy 存入相应的列表
+            # Scene 11 has only 4 frames, unlike other scenes which have 5 frames.
             if subfolder == "Scene11":
                 ids_ = exp_ids
             else:
                 ids_ = ids
             for id in ids_:
-                ######### Synthetic ####################
-                self.S_files.append(os.path.join(root, subfolder, 'HeatCubes',
-                                                 f"{id}_heatcube.mat"))
-                self.S_beta_files.append(os.path.join(root, subfolder, 'HeatCubes',
-                                                 'S_EnvObj_'+f"{id}.npy"))
+                ######### Synthetic ####################    
+                self.S_files.append(os.path.join(root, subfolder, 'HeatCubes',   
+                                                 f"{id}_heatcube.mat"))     # 原始数据 观测到的HeatCubes, heatcube.mat
+                self.S_beta_files.append(os.path.join(root, subfolder, 'HeatCubes',  
+                                                 'S_EnvObj_'+f"{id}.npy"))      # S_beta,显著物体辐射 S_EnvObj_.npy
                 self.T_files.append(os.path.join(root, subfolder, 'GroundTruth',
-                                                 'tMap', f"tMap_{id}.mat"))
+                                                 'tMap', f"tMap_{id}.mat"))     # GT, tmap_.mat
                 self.e_files.append(os.path.join(root, subfolder, 'GroundTruth',
-                                                 'eMap', f"new_eMap_{id}.npy"))
+                                                 'eMap', f"new_eMap_{id}.npy")) # GT, emap_.npy
                 self.v_files.append(os.path.join(root, subfolder, 'GroundTruth',
-                                                 'vMap', f"vMap_{id}.mat"))
+                                                 'vMap', f"vMap_{id}.mat"))     # GT, vmap_.mat
 
         self.inp_transforms = inp_transform # transform for inputs
         self.tgt_transforms = target_transform # transform for target values
-        self.split = split
+        self.split = split      # train, val or test
 
-        self.num_points = len(self.S_files)
+        self.num_points = len(self.S_files)         # heatcubes 数量
 
         ######################### Synthetic data ###############################
-
+        # 高光谱数据heatcubes中每个通道的均值和标准差
         self.S_mu = np.array([0.12647585, 0.12525924, 0.12395189, 0.12230065, 0.12088306, 0.11962758,
                               0.11836884, 0.11685297, 0.11524992, 0.11388518, 0.11242859, 0.11083422,
                               0.1090912,  0.10737984, 0.10582539, 0.10439677, 0.10263842, 0.10100006,
@@ -175,7 +174,7 @@ class HADARMultipleScenes():
         # self.T_std = np.load('/home/sureshbs/Desktop/TeXNet/Dataset/HADAR_database/Scene13/GroundTruth/tMap/T_std.npy')
         #############################################################################
 
-        self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[4:53]
+        self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[4:53]     # 将self.S_mu转换为形状(54，1，1)，然后对其进行切片,取4到52，49个通道
         # print("Shape of S_mu = ", np.shape(self.S_mu))
         self.S_std = np.reshape(self.S_std, (-1, 1, 1))[4:53]
 
@@ -183,46 +182,46 @@ class HADARMultipleScenes():
 
     def _load_data(self):
         # load the data location into two variables and return them
-        self.S_beta = []
-        self.S = []
-        self.tMaps = []
-        self.eMaps = []
-        self.vMaps = []
+        self.S_beta = []    # 显著物体环境的辐射        49*2
+        self.S = []         # Heatcube 原始数据        49*1080*1920
+        self.tMaps = []     # GT, tmap                1080*1920
+        self.eMaps = []     # GT, emap                1080*1920
+        self.vMaps = []     # GT, vmap                [2, 1080, 1920]
 
-        for i in self.S_beta_files:
+        for i in self.S_beta_files:     # Scene1-10: 1*54*2*1   Scene11: 1*49*2*1
             data = np.load(i)
-            data = np.squeeze(data)
+            data = np.squeeze(data)     # 压缩数据的单维度条目
             if data.shape[0] == 54:
                 data = data[4:53]
             data = torch.from_numpy(data).type(torch.float)
             self.S_beta.append(data)
 
-        for i in self.S_files:
+        for i in self.S_files:          # Scene1-10: 1080*1920*54   Scene11: 260*1500*49
             data = scio.loadmat(i)
             if "S" in data.keys():
-                data = data["S"]
+                data = data["S"]        # 'S' for Scene1-10
             elif "HSI" in data.keys():
-                data = data["HSI"]
+                data = data["HSI"]      # 'HSI' for Scene11 
             else:
                 raise ValueError("Known keys not present in heatcubes")
             # data = scio.loadmat(i)["S"]
-            data = np.transpose(data, (2, 0, 1))
+            data = np.transpose(data, (2, 0, 1))  # 转置 (0,1,2)-->(2,0,1)  即把通道数放在最前面data.shape[0]==channels
             if data.shape[0]==54:
                 data = data[4:53]
-            data = (data-self.S_mu)/self.S_std
+            data = (data-self.S_mu)/self.S_std      # 数据预处理，标准化，减均值，除标准差 计算一下heatcube的均值和标准差，看看和给的对不对
             # data = data[4:53]
             # data = data[4:53] # 49 channels
             # print("Shape of S = ", np.shape(data))
-            data = torch.from_numpy(data).type(torch.float)
+            data = torch.from_numpy(data).type(torch.float)     # 转换为torch.float，便于后续计算
             self.S.append(data)
 
-        for i in self.T_files:
+        for i in self.T_files:          # Scene1-10: 1080*1920   Scene11: 260*1500
             data = scio.loadmat(i)["tMap"]
             data = (data-self.T_mu)/self.T_std
             data = torch.from_numpy(data).type(torch.float)
             self.tMaps.append(data)
 
-        for i in self.e_files:
+        for i in self.e_files:          # Scene1-10: 1080*1920   Scene11: 260*1500
             # data = scio.loadmat(i)["eMap"]
             # data = torch.from_numpy(data).type(torch.long)
             # self.eMaps.append(data)
@@ -233,7 +232,7 @@ class HADARMultipleScenes():
             data = torch.from_numpy(data).type(torch.long)
             self.eMaps.append(data)
 
-        for i in self.v_files:
+        for i in self.v_files:          # Scene1-10: 1080*1920*2   Scene11: 260*1500*2
             data = scio.loadmat(i)["vMap"]
             data = np.transpose(data, (2, 0, 1))
             data = torch.from_numpy(data).type(torch.float)
@@ -251,12 +250,13 @@ class HADARMultipleScenes():
         else:
             return 2*self.num_points
 
-    def __getitem__(self, index_):
+    def __getitem__(self, index_):      # __getitem__(self,key)方法返回所给键对应的值  
+                                        # 此例中根据index_返回S_beta和随机裁剪后的 S, (tMap, eMap, vMap)
         if self.split == 'train':
             # Ensure all samples are seen during training.
             index = index_
             size_idx = 0
-        else:
+        else:       # ？
             index = index_ // 2 # choose the scene and the frame
             size_idx = index_ % 2 # choose the size/crop of the frame
             
@@ -275,12 +275,12 @@ class HADARMultipleScenes():
             vMap = self.tgt_transforms(vMap)
 
         if self.split == 'train' or (self.split == "val" and size_idx == 0):
-            ### Arbitrary Crop ####
-            crop_size = 256
-            w, h = S.shape[1:]
+            ### Arbitrary Crop ####   # Since the real-world scene (260*1500) has a different image size with the synthetic scenes (1080*1920)
+            crop_size = 256           # we used random crop (256*256) in training.
+            w, h = S.shape[1:]      # 获取weight和height
             th, tw = 256, 256 ## Hardcoding crop sizes
 
-            x1 = random.randint(0, w - tw)
+            x1 = random.randint(0, w - tw)  # 生成随机裁剪起始点(x1, y1)，防止裁剪区域超过图像尺寸
             y1 = random.randint(0, h - th)
 
             S.to(torch.float32)
@@ -306,7 +306,7 @@ class HADARMultipleScenes():
             vMap.to(torch.float32)
             eMap.to(torch.long)
 
-            if self.randflip:
+            if self.randflip:       # 随机翻转
                 flip = torch.rand(1) > 0.5
                 if flip:
                     S = TF.hflip(S)
@@ -367,19 +367,19 @@ class HADARMultipleScenesLoader(pl.LightningDataModule):
         self.eval_only = args.eval
 
     def setup(self, stage=None):
-
+        # input 
         train_inp_transform_list = [] #[transforms.RandomCrop(self.args.crop_size)]
         if self.randerase and False:
             train_inp_transform_list.extend([transforms.RandomErasing(p=0.5, scale=(0.1, 0.5))])
 
         if len(train_inp_transform_list) > 0:
-            train_inp_transform = transforms.Compose(train_inp_transform_list)
+            train_inp_transform = transforms.Compose(train_inp_transform_list)     # 把由转换操作组成的列表组合成一个整体的转换操作
         else:
             train_inp_transform = None
-
+        # target
         train_tgt_transform = None
 
-        if not self.eval_only:
+        if not self.eval_only:      # 如果不是eval模式，就train 
             print(f"** Loading training dataset....")
             self.train_data = self.dataset_type(root=self.data_dir,
                                                 split='train',

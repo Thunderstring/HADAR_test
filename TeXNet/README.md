@@ -10,7 +10,8 @@ scene 11: experimental image of 260x150x49.
 
 `SceneX\groundtruth\tMap`: temperature map. 1080x1920 (scene 1-10), 260x1500 (scene 11)
 
-`SceneX\groundtruth\vMap`: texture map? 1080x1920x2 (scene 1-10), 260x1500x2 (scene 11)
+`SceneX\groundtruth\vMap`: thermal lighting factor V map 1080x1920x2 (scene 1-10), 260x1500x2 (scene 11)   
+thermal lighting factors V map，由于TeX退化，数学结构 Sαν必须被指定以确保反向映射的唯一性，因此学习热照明因素V而不是纹理X。
 
 `\SceneX\HeatCubes\*_heatcube.mat`: multispectal images
 
@@ -20,6 +21,8 @@ scene 11: experimental image of 260x150x49.
 See `preprocess_data.ipynb`, including data descriptions.
 
 
+## Tips
+`loss_train.txt`中，数字分别为epoch，loss_S, loss_T, loss_e, loss_v
 
 
 
@@ -68,7 +71,7 @@ python main.py --ngpus 1 --backbone resnet50 --data_dir ../ --workers 8 --epochs
 
 ## Results and Pre-trained Weights
 
-The TeX-Net performance on the HADAR database is shown below.
+The TeX-Net outputs T, e, and V. Please run visualization after evaluating the TeX-Net to get the resMap. Please see the demo codes in 'Check_TeX_Vision_for_TeXNet_Outputs.txt' in this folder to get TeX vision images for TeX-Net. The TeX-Net performance on the HADAR database is shown below.
 
 <p align="center">
   <img src="https://github.com/FanglinBao/HADAR/blob/main/TeXNet/Fig3.png" />

@@ -12,7 +12,7 @@ import scipy.io as scio
 import segmentation_models_pytorch as smp
 
 DEBUG = True
-
+# 常数
 hbar = 105457180e-42
 h    = 2*math.pi*hbar
 c    = 299792458
@@ -26,28 +26,28 @@ def dprint(*args, **kwargs):
         print(*args, **kwargs)
 
 class SMPModel(pl.LightningModule):
-    """Class wrapping the TexNet model in PyTorch Lightning
+    """Class wrapping the TexNet model in PyTorch Lightning ，用 PyTorch Lightning 封装 TexNet 模型的类
     """
     def __init__(self, args):
         super().__init__()
-        self.nclass = args.nclass
-        self.eta = 0
+        self.nclass = args.nclass   # number of material classes
+        self.eta = 0        # unsupervised的loss权重？
         self.beta = 1
         self.args = args
 
-        self.only_eval = args.eval
-        self.timeit = args.timeit
-        self.log_images = not args.no_log_images
-        self.no_T_loss = args.no_T_loss
+        self.only_eval = args.eval      # 是否进行评估
+        self.timeit = args.timeit       # 是否记录推理时间
+        self.log_images = not args.no_log_images    # whether to visualize images on tensorboard
+        self.no_T_loss = args.no_T_loss     # 是否计算T、e、v map的loss
         self.no_e_loss = args.no_e_loss
         self.no_v_loss = args.no_v_loss
-        self.unsupervised = args.unsupervised
-        self.calc_score = args.calc_score
+        self.unsupervised = args.unsupervised   
+        self.calc_score = args.calc_score   # whether to train with correlation score or not
         self.checkpoint_dir = args.checkpoint_dir
 
-        self.num_inp_ch = 49 # 39
+        self.num_inp_ch = 49 # 39       # 输入通道数 number_input_channels
 
-        # normalization values for T and S
+        # normalization values for T and S       T 和 S 的归一化值
         self.mu = torch.tensor([0.12647585, 0.12525924, 0.12395189, 0.12230065, 0.12088306, 0.11962758,
                               0.11836884, 0.11685297, 0.11524992, 0.11388518, 0.11242859, 0.11083422,
                               0.1090912,  0.10737984, 0.10582539, 0.10439677, 0.10263842, 0.10100006,
@@ -67,22 +67,21 @@ class SMPModel(pl.LightningModule):
                                0.00884406, 0.00861178, 0.00857944, 0.00842725, 0.00828631, 0.00812178,
                                0.00806904, 0.00849851, 0.00772755, 0.00772355, 0.00759959, 0.00748127])
 
-        self.mu = self.mu[:self.num_inp_ch]
+        self.mu = self.mu[:self.num_inp_ch]     # 取前49个？ 不是后49个吗???   self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[4:53]
         self.std = self.std[:self.num_inp_ch]
 
-        self.mu = torch.reshape(self.mu, (-1, 1, 1))
+        self.mu = torch.reshape(self.mu, (-1, 1, 1))    # 转换为三维张量，-1表示通道数与原先一样
         self.std = torch.reshape(self.std, (-1, 1, 1))
-        self.T_mu = torch.tensor([15.997467357494212])
+        self.T_mu = torch.tensor([15.997467357494212])  # 用于额外的 T 归一化值的张量
         self.T_std = torch.tensor([8.544861474951992])
 
         # The output of this model is unnormalized logits.
-        # We can directly increase the number of channels to train for T
-        # and v maps.
-        num_out_channels = self.nclass
+        # We can directly increase the number of channels to train for T and v maps.
+        num_out_channels = self.nclass  
         if args.train_T:
             num_out_channels += 1
-        if args.train_v:
-            num_out_channels += 2
+        if args.train_v:    # sky and ground
+            num_out_channels += 2       # 输出通道数  材料种类+T+V*2
         self.train_T = args.train_T
         self.train_v = args.train_v
         if args.no_pretrained:
@@ -91,17 +90,18 @@ class SMPModel(pl.LightningModule):
         else:
             # weight_type = 'ssl'
             weight_type = 'imagenet'
-        self.texnet = getattr(smp, args.model)(encoder_name=args.backbone,
-                                    encoder_weights=weight_type,
-                                    in_channels=self.num_inp_ch,
-                                    classes=num_out_channels,
+        self.texnet = getattr(smp, args.model)(encoder_name=args.backbone,      # --backbone resnet50
+                                    encoder_weights=weight_type,                # 加载imagenet的预训练权重
+                                    in_channels=self.num_inp_ch,          # 输入通道数 49
+                                    classes=num_out_channels,             # 输出通道数  材料种类数+ 1(T) + 2(V)
                                 )
-
-        self.e_map_criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-        self.T_map_criterion = nn.MSELoss()
-        self.v_map_criterion = nn.KLDivLoss()
-        self.S_pred_criterion = nn.L1Loss()
-        self.miou = torchmetrics.JaccardIndex(num_classes=self.nclass)
+        # criterion 准则 基准
+        self.e_map_criterion = nn.CrossEntropyLoss(label_smoothing=0.1) # 交叉熵loss e-map
+        self.T_map_criterion = nn.MSELoss()     # MSE loss  T-map
+        self.v_map_criterion = nn.KLDivLoss()   # KL散度 loss v-map
+        self.S_pred_criterion = nn.L1Loss()     # L1 loss S_pred
+        # Intersection over Union (IoU) 衡量预测分割结果与真实分割结果之间的重叠程度
+        self.miou = torchmetrics.JaccardIndex(task="multiclass", num_classes=self.nclass)   
         self.softmax = nn.Softmax(dim=1)
 
         # if self.nclass == 28:
@@ -112,10 +112,10 @@ class SMPModel(pl.LightningModule):
         #     self.e_val_list =  self.e_val_list[f'emiLib{self.nclass}'].astype(np.float32)
 
         ########### Experimental data ################
-        self.e_val_list = scio.loadmat(os.path.join(args.data_dir, 'emiLib.mat'))
-        self.e_val_list =  (self.e_val_list['matLib'].astype(np.float32)).transpose()
+        self.e_val_list = scio.loadmat(os.path.join(args.data_dir, 'emiLib.mat'))  # material emissivity library 49*30size  每种材料在每个通道上的数据？
+        self.e_val_list =  (self.e_val_list['matLib'].astype(np.float32)).transpose()   # 取出'matLib'数据，变为float32数组，转置
 
-        self.e_val_list = torch.from_numpy(self.e_val_list)[:, -self.num_inp_ch:]
+        self.e_val_list = torch.from_numpy(self.e_val_list)[:, -self.num_inp_ch:]   # NumPy数组转换为PyTorch张量 
 
         # self.median_filter = MedianPool2d(stride=1)
 
@@ -123,7 +123,7 @@ class SMPModel(pl.LightningModule):
     def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
         optimizer.zero_grad(set_to_none=True)
 
-    def configure_optimizers(self):
+    def configure_optimizers(self):     # 配置优化器和学习率调度器
         params_group = [
             {'params': self.texnet.parameters(), 'lr': self.args.lr},
         ]
@@ -153,16 +153,16 @@ class SMPModel(pl.LightningModule):
     def n2p(self, nv):
         return 1e2*h*c*nv
 
-    def BBn(self, nv,Te):
+    def BBn(self, nv,Te):   # nv 频率  Te 温度
         # returns batch x self.num_inp_ch x H x W
-        return 2e6*c*nv**2/(torch.exp(cB*1e2*nv/Te)-1)
+        return 2e6*c*nv**2/(torch.exp(cB*1e2*nv/Te)-1)     # 计算黑体辐射
 
-    def BBp(self, nv,Te):
+    def BBp(self, nv,Te):  
         # want batch x self.num_inp_ch x 540 x 960
         return self.n2p(nv)*self.BBn(nv,Te)
     
     def unsupervised_S_pred_loss(self,
-                                 img,
+                                 img,       # torch.Size([1, 49, 256, 256])
                                  T_pred,
                                  e_pred,
                                  v_pred,
@@ -170,18 +170,18 @@ class SMPModel(pl.LightningModule):
                                  no_grad = False,
                                  calc_score=True
                                  ):
-
+        # 将张量移动到设备上，以便后续计算
         self.mu = self.mu.to(self.device)
         self.std = self.std.to(self.device)
 
         self.T_mu = self.T_mu.to(self.device)
         self.T_std = self.T_std.to(self.device)
-
-        img = img*self.std + self.mu
+        # 标准化
+        img = img*self.std + self.mu   
         T_pred = T_pred*self.T_std + self.T_mu
         # pred1 = torch.clamp((torch.nn.functional.relu(pred1)), max=9.1076, min=-4.0624)
 
-        nu = np.linspace(720, 1250, self.num_inp_ch)
+        nu = np.linspace(720, 1250, self.num_inp_ch)    # 波长   从720到1250 49个波段
         nu = torch.from_numpy(nu).to(img.device)
 
         batchsize, _, h, w = T_pred.size()
@@ -200,17 +200,17 @@ class SMPModel(pl.LightningModule):
         #     raise ValueError(f"number of channels in v cannot be {num_v_channels}")
         # quadratic_split = quadratic_split.reshape(batchsize, self.num_inp_ch, num_v_channels)
         quadratic_split = S_beta
-
-        S1 = emi_val * self.BBp(nu.reshape(1, self.num_inp_ch, 1, 1), (T_pred+ 273.15))
-        v_pred_ = v_pred.reshape(batchsize, num_v_channels, h*w)
-        S2 = torch.matmul(quadratic_split, v_pred_)
-        S2 = S2.view(batchsize, self.num_inp_ch, h, w)
-        S_pred = S1 + (1-emi_val)*S2
+        # 对S进行预测   核心公式！
+        S1 = emi_val * self.BBp(nu.reshape(1, self.num_inp_ch, 1, 1), (T_pred+ 273.15)) # 计算自身辐射S1（第一部分）
+        v_pred_ = v_pred.reshape(batchsize, num_v_channels, h*w)    
+        S2 = torch.matmul(quadratic_split, v_pred_)     # 将调整过后的v_pred与输入的S_beta相乘
+        S2 = S2.view(batchsize, self.num_inp_ch, h, w)  # 计算其他物体的散射S2（带有纹理的部分）
+        S_pred = S1 + (1-emi_val)*S2                    # 叠加得到物体的热信号S的预测值S_pred  
         S_pred = S_pred.to(img.device)
 
         img = img.type(torch.float64)
 
-        if no_grad:
+        if no_grad:     # 通常在推理时，不需要跟踪梯度，no_grad可以为True，训练时需要跟踪梯度以便进行反向传播和参数更新
             with torch.no_grad():
                 img_ = (img - self.mu)/self.std
                 S_pred_ = (S_pred - self.mu)/self.std
@@ -256,7 +256,7 @@ class SMPModel(pl.LightningModule):
     
     def pseudo_RGB_from_S_pred(self, S_pred):
         '''
-        Convert S_pred to pseudo-RGB for visualization on Tensorboard
+        Convert S_pred to pseudo-RGB for visualization on Tensorboard   把S的预测转换成伪RGB，以便在 Tensorboard 上实现可视化
         '''
         dim4 = True
         if S_pred.dim() == 3:
@@ -331,10 +331,11 @@ class SMPModel(pl.LightningModule):
             v_pred = v
 
         if not self.unsupervised:
-            with torch.no_grad():
+            # no_grad不计算梯度，只需要执行前向传播并获取输出结果，通常用于推理或评估，不需要保存中间计算结果以进行反向传播。
+            with torch.no_grad():       # supervised 使用no_grad，loss_S在后面没用到
                 loss_S, S_pred, corr_score = self.unsupervised_S_pred_loss(img, T_pred, e_pred, v_pred,S_beta,
                                                                             no_grad=True, calc_score=self.calc_score)
-        else:
+        else:   # unsupervised 不使用no_grad，loss_S在后面按照权重加到了loss里
             loss_S, S_pred, corr_score = self.unsupervised_S_pred_loss(img, T_pred, e_pred, v_pred, S_beta,
                                                                         calc_score=self.calc_score)
         # save S_pred for predicting later
@@ -351,10 +352,11 @@ class SMPModel(pl.LightningModule):
             loss1 = loss1+loss_v
 
         if self.unsupervised:
-            loss = (1-self.eta)*loss1+(self.eta)*(self.beta)*loss_S
+            loss = (1-self.eta)*loss1+(self.eta)*(self.beta)*loss_S     # beta是1，eta是各种loss的权重？文章里是0.5
         else:
-            loss = loss1
-
+            loss = loss1     # loss1是supervised的loss(由预测的T_pred,e_pred,v_pred和GT得到的loss)
+                             # loss_S是unsupervised的loss（通过预测的S_pred与真实值img计算得到的loss）
+                             # S_pred也由T_pred,e_pred,v_pred计算得到
         train_step_out = {'loss': loss}
 
         try:
@@ -402,17 +404,17 @@ class SMPModel(pl.LightningModule):
         tensorboard, de-normalize the values.
         '''
         S_pred_ = self.train_S_pred.detach()
-        S_pred_ = (S_pred_ - self.mu)/self.std
+        S_pred_ = (S_pred_ - self.mu)/self.std  
         S_true_ = self.train_img.detach()
         loss_S = torch.abs(S_pred_ - S_true_).mean() ###### Write this to file
         
         with torch.no_grad():
-            self.train_img = self.train_img * self.std + self.mu
+            self.train_img = self.train_img * self.std + self.mu  
 
-        S_pred = self.pseudo_RGB_from_S_pred(self.train_S_pred.detach())
-        S_true = self.pseudo_RGB_from_S_pred(self.train_img.detach())
+        S_pred = self.pseudo_RGB_from_S_pred(self.train_S_pred.detach())    # 预测值
+        S_true = self.pseudo_RGB_from_S_pred(self.train_img.detach())       # GT
         S_error = self.pseudo_RGB_from_S_pred(torch.abs(self.train_img.detach()- \
-                                                self.train_S_pred.detach()))
+                                                self.train_S_pred.detach()))   
         e_pred = out[:, :self.nclass, ...]
         T_pred = None
         v_pred = None
@@ -494,17 +496,17 @@ class SMPModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         self.e_val_list = self.e_val_list.to(self.device)
-        S_beta, img, tgt = batch
+        S_beta, img, tgt = batch        #  解压批次数据
         # e may be from 1 to 21 (both inclusive).
         # So we need to correct it, if that is the case.
         t, e, v = tgt
         num_v_channels = v.size(1)
         # e -= torch.min(e) ## Cropping issue? 
-        t = t.unsqueeze(1)
+        t = t.unsqueeze(1)  # 对t维度扩展，并更新target
         tgt = (t, e, v)
 
         with torch.no_grad():
-            pred = self.texnet(img)
+            pred = self.texnet(img)     # 对img进行预测，并将预测结果分割为e_pred、T_pred和v_pred
             e_pred = pred[:, :self.nclass, :, :]
             T_pred = None
             v_pred = None
@@ -535,7 +537,7 @@ class SMPModel(pl.LightningModule):
             val_iou = self.miou(e_pred, e)
             loss_S, S_pred, corr_score = self.unsupervised_S_pred_loss(img, T_pred, e_pred, v_pred, S_beta,
                                                                         no_grad=True, calc_score=self.calc_score)
-        
+        # 计算loss
         loss1 = 0
         loss = 0
 
@@ -550,7 +552,7 @@ class SMPModel(pl.LightningModule):
             loss = (1-self.eta)*loss1+(self.eta)*(self.beta)*loss_S
         else:
             loss = loss1
-
+        # loss存于dict
         val_step_out = dict()
 
         val_step_out['loss'] = loss
@@ -573,7 +575,7 @@ class SMPModel(pl.LightningModule):
 
         # print("Validation about to save tensors")
 
-        torch.save(t, f'{self.checkpoint_dir}/val_T_{batch_idx}.pt')
+        torch.save(t, f'{self.checkpoint_dir}/val_T_{batch_idx}.pt')       # 把t,e,v,pred,S_pred,img(true)数据保存至.pt
         torch.save(e, f'{self.checkpoint_dir}/val_e_{batch_idx}.pt')
         torch.save(v, f'{self.checkpoint_dir}/val_v_{batch_idx}.pt')
         torch.save(pred, f'{self.checkpoint_dir}/val_pred_{batch_idx}.pt')

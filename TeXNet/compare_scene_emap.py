@@ -5,11 +5,14 @@ import scipy.io as scio
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-DATA_DIR = "/home/gautamsree/Downloads/new_HADAR_database" # Root directory of the data
-if "sreekum1" in os.getcwd():
-    DATA_DIR = "/research/hal-sreekum1/HADAR_Fanglin" # Root directory of the data
-else:
-    DATA_DIR = "/home/gautamsreekumar/research/hal-sreekum1/HADAR_Fanglin" # Root directory of the data
+# DATA_DIR = "/home/gautamsree/Downloads/new_HADAR_database" # Root directory of the data
+# if "sreekum1" in os.getcwd():
+#     DATA_DIR = "/research/hal-sreekum1/HADAR_Fanglin" # Root directory of the data
+# else:
+#     DATA_DIR = "/home/gautamsreekumar/research/hal-sreekum1/HADAR_Fanglin" # Root directory of the data
+
+DATA_DIR = '~/workspace/zx/HADAR_database/'
+
 SCENES_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] # Scenes to check
 OUT_DIR = "heatcube_emap_visualization"
 FRAME_NUMS = [1, 2, 3, 4, 5] # number of frames to check

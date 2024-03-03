@@ -6,7 +6,7 @@ import os
 # S_mu = []
 # S_std = []
 
-root = '/media/ljm/Data/HADAR/HADAR_database/'
+root = '~/workspace/zx/HADAR_database/'
 
 # path = '/home/sureshbs/Desktop/TeXNet/Dataset/HADAR_database/Scene14/'
 
