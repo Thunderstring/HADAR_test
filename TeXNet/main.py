@@ -13,12 +13,12 @@ from model import SMPModel
 # from datamodule import HADARLoader
 from datamodule_newdata import HADARMultipleScenesLoader
 
-
 # python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 40000 --checkpoint_dir supervised_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 10 --seed 42 --unsupervised --fold 4
 # python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 40000 --checkpoint_dir supervised_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 10 --seed 42
-# python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 200 --checkpoint_dir supervised_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --eval_every 10 --res full --batch-size 10 --seed 42
-# python main.py --ngpus 1 --backbone resnet50 --data_dir ../ --workers 8 --epochs 40000 --checkpoint_dir supervised_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 10 --seed 42
-# val python TeXNet/main.py --ngpus 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 40000 --checkpoint_dir supervised_check_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 10 --seed 42 --resume ~/workspace/zx/HADAR-main/supervised_crop_v1/lightning_logs/version_1/checkpoints/epoch=36499-step=109500.ckpt --eval
+# python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 40000 --checkpoint_dir /mnt/Disk/zx/HADAR/test2_fold=0/4-channels --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 16 --seed 42 --fold 0
+# val 
+# python TeXNet/main.py --ngpus 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 1 --checkpoint_dir /mnt/Disk/zx/HADAR/test3/25-channels_val --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 1 --res full --batch-size 16 --seed 42 --resume /mnt/Disk/zx/HADAR/test3/25-channels/lightning_logs/version_1/checkpoints/epoch=5999-step=36000.ckpt --eval -fold ?
+
 
 if __name__ == "__main__":
     args = parse_args()     # 解析命令行参数
@@ -55,8 +55,8 @@ if __name__ == "__main__":
     
     callback_list = []
 
-    if model_checkpoint:        # 创建了一个 ModelCheckpoint 回调对象，使用验证集的loss，保存最佳的两个模型，保存最后一个模型
-        checkpoint_callback = ModelCheckpoint(monitor='val_loss', save_top_k=2, save_last=True)
+    if model_checkpoint:        # 创建了一个 ModelCheckpoint 回调对象，使用验证集的loss，保存最佳的一个模型，保存最后一个模型
+        checkpoint_callback = ModelCheckpoint(monitor='val_loss', save_top_k=1, save_last=True)
         callback_list.append(checkpoint_callback)
 
     plugins_list = []
@@ -76,8 +76,9 @@ if __name__ == "__main__":
         callback_list.append(swa)
 
     trainer = pl.Trainer(
-                        #  devices=[1],   # 如果要用卡1
+                        #  devices=[1],   # 如果要用卡1     # Todo
                          devices=args.ngpus,
+                        
                          strategy='ddp_find_unused_parameters_false',   # 分布式训练策略设置为 DistributedDataParallel（DDP），确保训练过程中不会忽略未使用的参数。
                          accelerator="gpu",
                          plugins=plugins_list,

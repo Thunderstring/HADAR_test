@@ -124,17 +124,20 @@ class HADARMultipleScenes():
             else:
                 ids_ = ids
             for id in ids_:
-                ######### Synthetic ####################    
+                ######### Synthetic ####################        heatvube, tMap, vMap has been changed from .mat to .npy
                 self.S_files.append(os.path.join(root, subfolder, 'HeatCubes',   
-                                                 f"{id}_heatcube.mat"))     # 原始数据 观测到的HeatCubes, heatcube.mat
+                                                 f"{id}_heatcube.npy"))
+                                                #  f"{id}_heatcube.mat"))     # 原始数据 观测到的HeatCubes, heatcube.mat
                 self.S_beta_files.append(os.path.join(root, subfolder, 'HeatCubes',  
                                                  'S_EnvObj_'+f"{id}.npy"))      # S_beta,显著物体辐射 S_EnvObj_.npy
                 self.T_files.append(os.path.join(root, subfolder, 'GroundTruth',
-                                                 'tMap', f"tMap_{id}.mat"))     # GT, tmap_.mat
+                                                 'tMap', f"tMap_{id}.npy"))
+                                                #  'tMap', f"tMap_{id}.mat"))     # GT, tmap_.mat
                 self.e_files.append(os.path.join(root, subfolder, 'GroundTruth',
                                                  'eMap', f"new_eMap_{id}.npy")) # GT, emap_.npy
                 self.v_files.append(os.path.join(root, subfolder, 'GroundTruth',
-                                                 'vMap', f"vMap_{id}.mat"))     # GT, vmap_.mat
+                                                 'vMap', f"vMap_{id}.npy"))
+                                                #  'vMap', f"vMap_{id}.mat"))     # GT, vmap_.mat
 
         self.inp_transforms = inp_transform # transform for inputs
         self.tgt_transforms = target_transform # transform for target values
@@ -167,16 +170,17 @@ class HADARMultipleScenes():
         self.T_std = 8.544861474951992
         #############################################################################
         ############################ Experimental data ##############################
-        # self.S_mu = np.load('/home/sureshbs/Desktop/TeXNet/Dataset/HADAR_database/Scene13/HeatCubes/S_mu.npy')
-        # self.S_std = np.load('/home/sureshbs/Desktop/TeXNet/Dataset/HADAR_database/Scene13/HeatCubes/S_std.npy')
 
-        # self.T_mu = np.load('/home/sureshbs/Desktop/TeXNet/Dataset/HADAR_database/Scene13/GroundTruth/tMap/T_mu.npy')
-        # self.T_std = np.load('/home/sureshbs/Desktop/TeXNet/Dataset/HADAR_database/Scene13/GroundTruth/tMap/T_std.npy')
-        #############################################################################
+        # self.slice1 = slice(4,53)  # for Scene1-10
+        # self.slice2 = slice(None, None) # for Scene11
+        self.slice1 = slice(4, 53, 6)           # Todo
+        self.slice2 = slice(None, None, 6)
 
-        self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[4:53]     # 将self.S_mu转换为形状(54，1，1)，然后对其进行切片,取4到52，49个通道
-        # print("Shape of S_mu = ", np.shape(self.S_mu))
-        self.S_std = np.reshape(self.S_std, (-1, 1, 1))[4:53]
+        # 将self.S_mu转换为形状(54，1，1)，然后对其进行切片,取4到52，49个通道
+        self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[self.slice1]       
+        self.S_std = np.reshape(self.S_std, (-1, 1, 1))[self.slice1]     
+        # self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[4:53]       
+        # self.S_std = np.reshape(self.S_std, (-1, 1, 1))[4:53]   
 
         self._load_data() # Loads data to CPU
 
@@ -191,23 +195,40 @@ class HADARMultipleScenes():
         for i in self.S_beta_files:     # Scene1-10: 1*54*2*1   Scene11: 1*49*2*1
             data = np.load(i)
             data = np.squeeze(data)     # 压缩数据的单维度条目
+
             if data.shape[0] == 54:
-                data = data[4:53]
+                data = data[self.slice1]         
+            else : 
+                data = data[self.slice2]        
+            # if data.shape[0] == 54:
+            #     data = data[4:53]         
+            # else : 
+            #     data = data       
+
             data = torch.from_numpy(data).type(torch.float)
             self.S_beta.append(data)
 
         for i in self.S_files:          # Scene1-10: 1080*1920*54   Scene11: 260*1500*49
-            data = scio.loadmat(i)
-            if "S" in data.keys():
-                data = data["S"]        # 'S' for Scene1-10
-            elif "HSI" in data.keys():
-                data = data["HSI"]      # 'HSI' for Scene11 
-            else:
-                raise ValueError("Known keys not present in heatcubes")
-            # data = scio.loadmat(i)["S"]
+            # data = scio.loadmat(i)        # ??    表示已被修改
+            # if "S" in data.keys():
+            #     data = data["S"]        # 'S' for Scene1-10
+            # elif "HSI" in data.keys():
+            #     data = data["HSI"]      # 'HSI' for Scene11 
+            # else:
+            #     raise ValueError("Known keys not present in heatcubes")
+            data = np.load(i)
+
             data = np.transpose(data, (2, 0, 1))  # 转置 (0,1,2)-->(2,0,1)  即把通道数放在最前面data.shape[0]==channels
+
             if data.shape[0]==54:
-                data = data[4:53]
+                data = data[self.slice1]     
+            else : 
+                data = data[self.slice2]        
+            # if data.shape[0]==54:
+            #     data = data[4:53]     
+            # else : 
+            #     data = data      
+
             data = (data-self.S_mu)/self.S_std      # 数据预处理，标准化，减均值，除标准差 计算一下heatcube的均值和标准差，看看和给的对不对
             # data = data[4:53]
             # data = data[4:53] # 49 channels
@@ -216,7 +237,8 @@ class HADARMultipleScenes():
             self.S.append(data)
 
         for i in self.T_files:          # Scene1-10: 1080*1920   Scene11: 260*1500
-            data = scio.loadmat(i)["tMap"]
+            # data = scio.loadmat(i)["tMap"]      # ??
+            data = np.load(i)
             data = (data-self.T_mu)/self.T_std
             data = torch.from_numpy(data).type(torch.float)
             self.tMaps.append(data)
@@ -233,7 +255,8 @@ class HADARMultipleScenes():
             self.eMaps.append(data)
 
         for i in self.v_files:          # Scene1-10: 1080*1920*2   Scene11: 260*1500*2
-            data = scio.loadmat(i)["vMap"]
+            # data = scio.loadmat(i)["vMap"]      # ??
+            data = np.load(i)
             data = np.transpose(data, (2, 0, 1))
             data = torch.from_numpy(data).type(torch.float)
             self.vMaps.append(data)

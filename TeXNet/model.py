@@ -45,7 +45,12 @@ class SMPModel(pl.LightningModule):
         self.calc_score = args.calc_score   # whether to train with correlation score or not
         self.checkpoint_dir = args.checkpoint_dir
 
-        self.num_inp_ch = 49 # 39       # 输入通道数 number_input_channels
+        # self.slice1 = slice(4, 53)  # for Scene1-10     # Todo
+        # self.slice2 = slice(None, None) # for Scene11
+        self.slice1 = slice(4, 53, 6) 
+        self.slice2 = slice(None, None, 6)
+                               #   13 10 6  4  3  2  1
+        self.num_inp_ch = 9   #   4  5  9  13 17 25 49      # Todo  # 输入通道数 number_input_channels  
 
         # normalization values for T and S       T 和 S 的归一化值
         self.mu = torch.tensor([0.12647585, 0.12525924, 0.12395189, 0.12230065, 0.12088306, 0.11962758,
@@ -67,8 +72,13 @@ class SMPModel(pl.LightningModule):
                                0.00884406, 0.00861178, 0.00857944, 0.00842725, 0.00828631, 0.00812178,
                                0.00806904, 0.00849851, 0.00772755, 0.00772355, 0.00759959, 0.00748127])
 
-        self.mu = self.mu[:self.num_inp_ch]     # 取前49个？ 不是后49个吗???   self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[4:53]
-        self.std = self.std[:self.num_inp_ch]
+        # self.mu = self.mu[:self.num_inp_ch]     # 取前49个？ 不是后49个吗???   self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[4:53]
+        # self.std = self.std[:self.num_inp_ch]
+
+        self.mu = self.mu[self.slice1]       
+        self.std = self.std[self.slice1]     
+        # self.mu = self.mu[4:53]       
+        # self.std = self.std[4:53]     
 
         self.mu = torch.reshape(self.mu, (-1, 1, 1))    # 转换为三维张量，-1表示通道数与原先一样
         self.std = torch.reshape(self.std, (-1, 1, 1))
@@ -114,7 +124,6 @@ class SMPModel(pl.LightningModule):
         ########### Experimental data ################
         self.e_val_list = scio.loadmat(os.path.join(args.data_dir, 'emiLib.mat'))  # material emissivity library 49*30size  每种材料在每个通道上的数据？
         self.e_val_list =  (self.e_val_list['matLib'].astype(np.float32)).transpose()   # 取出'matLib'数据，变为float32数组，转置
-
         self.e_val_list = torch.from_numpy(self.e_val_list)[:, -self.num_inp_ch:]   # NumPy数组转换为PyTorch张量 
 
         # self.median_filter = MedianPool2d(stride=1)
@@ -130,7 +139,7 @@ class SMPModel(pl.LightningModule):
 
         optimizer = optim.AdamW(params_group, weight_decay=self.args.weight_decay)
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
-                                                    milestones=[30000, 37000],
+                                                    milestones=[30000, 37000],      # Todo
                                                     gamma=0.1)
 
         scheduler_dict = {'scheduler': scheduler,
@@ -176,15 +185,17 @@ class SMPModel(pl.LightningModule):
 
         self.T_mu = self.T_mu.to(self.device)
         self.T_std = self.T_std.to(self.device)
-        # 标准化
+        # 去标准化
         img = img*self.std + self.mu   
         T_pred = T_pred*self.T_std + self.T_mu
         # pred1 = torch.clamp((torch.nn.functional.relu(pred1)), max=9.1076, min=-4.0624)
 
-        nu = np.linspace(720, 1250, self.num_inp_ch)    # 波长   从720到1250 49个波段
-        nu = torch.from_numpy(nu).to(img.device)
-
-        batchsize, _, h, w = T_pred.size()
+        # 这里应该也有错误，49个波段是从760到1240  54个波段是从720到1250
+        # nu = np.linspace(720, 1250, self.num_inp_ch)    
+        nu = np.linspace(760, 1240, self.num_inp_ch)  
+        nu = torch.from_numpy(nu).to(img.device)        # Todo   波段也得改 因为是抽取的  中间少了一些波段
+                                                        # 后面直接乘进去了，好像不用改，直接linspace根据self.num_inp_ch分段即可
+        batchsize, _, h, w = T_pred.size()      
         emi_val = self.e_val_list[e_pred]
         emi_val = torch.transpose(emi_val, 3, 1)
         # now, emi_val is batch x self.num_inp_ch x W x H
@@ -214,8 +225,8 @@ class SMPModel(pl.LightningModule):
             with torch.no_grad():
                 img_ = (img - self.mu)/self.std
                 S_pred_ = (S_pred - self.mu)/self.std
-                loss = self.S_pred_criterion(img_, S_pred_)
-        else:
+                loss = self.S_pred_criterion(img_, S_pred_)     # 通过解耦出T,e,v的预测值，再重新计算S_pred，与原始输入img比较，得到无监督的loss？
+        else:                                                   # img是GT吗？ 是GT       # 注意，这是一个解耦问题，从img里面解耦出TeX
             img_ = (img - self.mu)/self.std
             S_pred_ = (S_pred - self.mu)/self.std
             loss = self.S_pred_criterion(img_, S_pred_)
@@ -378,6 +389,9 @@ class SMPModel(pl.LightningModule):
         self.log('loss_S', loss_S, on_step=True, on_epoch=False, sync_dist=True, prog_bar=False)
         self.log('corr_score', corr_score, on_step=True, on_epoch=False, sync_dist=True, prog_bar=False)
 
+        # # 用这个print看--eval的时候有没有经过training_step   没有   --ava的时候只eval  不train
+        # print("training...__________________________________________________________________________________________")
+
         with torch.no_grad():
             train_iou = self.miou(e_pred, e)
             self.log('train_miou', train_iou, on_step=True, on_epoch=False, sync_dist=True, prog_bar=False)
@@ -447,7 +461,7 @@ class SMPModel(pl.LightningModule):
         S_error = S_error[idx]
         S_true = S_true[idx]
 
-        if self.logger and self.log_images:
+        if self.logger and self.log_images:         # --no_log_images == True   self.log_images == False 不画图像
             self.logger.experiment.add_images('S_pred_train', S_pred, self.current_epoch, dataformats='NCHW')
             self.logger.experiment.add_images('S_error_train', S_error, self.current_epoch, dataformats='NCHW')
             self.logger.experiment.add_images('S_true_train', S_true, self.current_epoch, dataformats='NCHW')
@@ -537,6 +551,8 @@ class SMPModel(pl.LightningModule):
             val_iou = self.miou(e_pred, e)
             loss_S, S_pred, corr_score = self.unsupervised_S_pred_loss(img, T_pred, e_pred, v_pred, S_beta,
                                                                         no_grad=True, calc_score=self.calc_score)
+            # _, SSS_true, _ = self.unsupervised_S_pred_loss(img, t, e, v, S_beta,
+            #                                                             no_grad=True, calc_score=self.calc_score)
         # 计算loss
         loss1 = 0
         loss = 0
@@ -575,12 +591,13 @@ class SMPModel(pl.LightningModule):
 
         # print("Validation about to save tensors")
 
-        torch.save(t, f'{self.checkpoint_dir}/val_T_{batch_idx}.pt')       # 把t,e,v,pred,S_pred,img(true)数据保存至.pt
-        torch.save(e, f'{self.checkpoint_dir}/val_e_{batch_idx}.pt')
-        torch.save(v, f'{self.checkpoint_dir}/val_v_{batch_idx}.pt')
-        torch.save(pred, f'{self.checkpoint_dir}/val_pred_{batch_idx}.pt')
-        torch.save(S_pred, f'{self.checkpoint_dir}/val_S_pred_{batch_idx}.pt')
-        torch.save(img, f'{self.checkpoint_dir}/val_S_true_{batch_idx}.pt')
+        if self.only_eval:
+            torch.save(t, f'{self.checkpoint_dir}/val_T_{batch_idx}.pt')       # 把t,e,v,pred,S_pred,img(true)数据保存至.pt
+            torch.save(e, f'{self.checkpoint_dir}/val_e_{batch_idx}.pt')
+            torch.save(v, f'{self.checkpoint_dir}/val_v_{batch_idx}.pt')
+            torch.save(pred, f'{self.checkpoint_dir}/val_pred_{batch_idx}.pt')
+            torch.save(S_pred, f'{self.checkpoint_dir}/val_S_pred_{batch_idx}.pt')
+            torch.save(img, f'{self.checkpoint_dir}/val_S_true_{batch_idx}.pt')
 
         # print("Validation tensors")
 

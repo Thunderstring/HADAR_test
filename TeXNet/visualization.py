@@ -23,22 +23,31 @@ import torchmetrics
 # DATA_DIR = 'supervised_crop'
 # OUT_DIR = DATA_DIR+'_visualized'
 
-DATA_DIR = 'results/unsupervised_crop'
-OUT_DIR = DATA_DIR+'_visualized'
-
-os.makedirs(OUT_DIR, exist_ok=True)
+DATA_DIR = '/mnt/Disk/zx/HADAR/test2_fold=0/9-channels_val'
+OUT_DIR = DATA_DIR+'/visualized'
 
 max_n_class = 30
 T_max = 70
 
+e_accuracy = []
+T_err_mean = []
+v_kldiv_mean = []
+
+num_files = 41
+visualize_flag = True
+# visualize_flag = False
+
+if visualize_flag:
+    os.makedirs(OUT_DIR, exist_ok=True)
+
 def get_X_from_V(S, v):
     C, H, W = S.shape
     S1 = (np.mean(S[:, :H//2]))
-    S2 = (np.mean(S[:, H//2:]))
-
+    # S2 = (np.mean(S[:, H//2:]))     # ?
+    S2 = (np.mean(S[:, H//2:]))     
     # print(v[0])
 
-    X = v[0]*S1 + v[1]*S1
+    X = v[0]*S1 + v[1]*S2
 
     return X
 
@@ -62,7 +71,7 @@ def visualize_TeX(TeX, fname, max_vals, kind='pred'):
     TeX_ = mpl.colors.hsv_to_rgb(TeX)/np.amax(mpl.colors.hsv_to_rgb(TeX))
     TeX_ = ((TeX_ - np.min(TeX_))/(np.max(TeX_) - np.min(TeX_)*255.).astype(np.uint8))
     plt.imshow(TeX_)
-    plt.title('TeX '+kind)
+    plt.title('TeX '+ kind)
     plt.axis('off')
     # plt.colorbar()
     plt.clim(0,1)
@@ -75,8 +84,7 @@ def visualize_residue(i, j, res, fname):
     # Need to normalize each value of TeX to [0, 1]
 
     img = np.squeeze(np.linalg.norm(res, axis=0))
-    # np.save('/home/sureshbs/Desktop/TeXNet/Dataset/TexNet_multiscene/'+OUT_DIR+'/'+f'residue_{i+j}_no_rescale.npy', img)
-    np.save(OUT_DIR+'/'+f'residue_{i+j}_no_rescale.npy', img)
+    # np.save(OUT_DIR+'/'+f'residue_{i+j}_no_rescale.npy', img)
     img = img_as_float(np.squeeze(np.linalg.norm(res, axis=0)))/255.0
     # print(np.max(img))
 
@@ -169,7 +177,7 @@ def visualize_m(data, fname, kind='pred'):
     #                [0.5693],
     #                [0.    ],
     #                ])
-    hue = np.array([[0.5098],
+    hue = np.array([[0.5098],           # 30种材料对应的hue
                     [0.6157],
                     [0.8784],
                     [0.0431],
@@ -200,11 +208,11 @@ def visualize_m(data, fname, kind='pred'):
                     [0.0392],
                     [0.1961]])
 
-    sat = np.ones_like(hue)*0.7
-    val = np.ones_like(hue)
+    sat = np.ones_like(hue)*0.7     # satuation 饱和度
+    val = np.ones_like(hue)         # value     亮度
 
-    hsv = np.concatenate((hue, sat, val), 1)
-    rgb = mpl.colors.hsv_to_rgb(hsv)
+    hsv = np.concatenate((hue, sat, val), 1)        # 映射
+    rgb = mpl.colors.hsv_to_rgb(hsv)        # hsv转为rgb用于可视化
     rgb = np.concatenate((rgb, np.ones((max_n_class, 1))), 1)
 
     newcmap = ListedColormap(rgb)
@@ -304,28 +312,22 @@ exp_miou = []
 
 print("folder: ", DATA_DIR)
 
-for j in range(41):     # 40 ?    Todo
-    T_file = torch.load(os.path.join(DATA_DIR, f'val_T_{j}.pt'), map_location='cpu')    # 此.pt文件保存的是t,e,v,pred,S_pred,img(true)数据
-    e_file = torch.load(os.path.join(DATA_DIR, f'val_e_{j}.pt'), map_location='cpu')
-    v_file = torch.load(os.path.join(DATA_DIR, f'val_v_{j}.pt'), map_location='cpu')
-    pred_file = torch.load(os.path.join(DATA_DIR, f'val_pred_{j}.pt'), map_location='cpu')
-    S_pred_file = torch.load(os.path.join(DATA_DIR, f'val_S_pred_{j}.pt'), map_location='cpu')
-    S_true_file = torch.load(os.path.join(DATA_DIR, f'val_S_true_{j}.pt'), map_location='cpu')
-
-    # T_file = torch.load(os.path.join(DATA_DIR, 'val_T.pt'), map_location='cpu')
-    # e_file = torch.load(os.path.join(DATA_DIR, 'val_e.pt'), map_location='cpu')
-    # v_file = torch.load(os.path.join(DATA_DIR, 'val_v.pt'), map_location='cpu')
-    # pred_file = torch.load(os.path.join(DATA_DIR, 'val_pred.pt'), map_location='cpu')
-    # S_pred_file = torch.load(os.path.join(DATA_DIR, 'val_S_pred.pt'), map_location='cpu')
-    # S_true_file = torch.load(os.path.join(DATA_DIR, 'val_S_true.pt'), map_location='cpu')
+for j in trange(num_files):     # 41 ?    Todo  why 41?   
+    # 此.pt文件保存的是t,e,v,pred,S_pred,img(true)数据（裁剪后）
+    T_file = torch.load(os.path.join(DATA_DIR, f'val_T_{j}.pt'), map_location='cpu')    # [1, 1, 256, 256]  e,T,v_ground truth
+    e_file = torch.load(os.path.join(DATA_DIR, f'val_e_{j}.pt'), map_location='cpu')    # [1, 256, 256]
+    v_file = torch.load(os.path.join(DATA_DIR, f'val_v_{j}.pt'), map_location='cpu')    # [1, 2, 256, 256]
+    pred_file = torch.load(os.path.join(DATA_DIR, f'val_pred_{j}.pt'), map_location='cpu')  # [1, 33, 256, 256]   30(materials) + 1(T) + 2(V) = 33
+    S_pred_file = torch.load(os.path.join(DATA_DIR, f'val_S_pred_{j}.pt'), map_location='cpu')  # [1, 49, 256, 256]
+    S_true_file = torch.load(os.path.join(DATA_DIR, f'val_S_true_{j}.pt'), map_location='cpu')  # [1, 49, 256, 256]
     
     assert T_file.size(0) == e_file.size(0) == v_file.size(0) == pred_file.size(0)  # 确保第一个维度（batch 维度）的大小相等
-
+        # 这batch怎么是1呢？不是只有验证时batch是1吗
     n = T_file.size(0)
 
     nclass = max_n_class
 
-    for i in trange(n):
+    for i in range(n):
         pred = pred_file[i].squeeze()
         e = e_file[i].squeeze()         # e,T,v_ground truth
 
@@ -334,27 +336,27 @@ for j in range(41):     # 40 ?    Todo
         v = v_file[i].squeeze().numpy()
 
         c = pred.size(0)
-        e_pred = pred[:nclass]      # pred里面取出 e,T,v_pred
-        T_pred = None
+        e_pred = pred[:nclass]      # pred里面取出前30个通道，是材料种类
+        T_pred = None               # 初始化T和v
         v_pred = None
-        if c == nclass+1:
+        if c == nclass+1:       # 30(materials) + 1(T)
             T_pred = pred[nclass]
         elif c == nclass+4:
             v_pred = pred[nclass:]
-        elif c == nclass+3:
-            T_pred = pred[nclass]
-            v_pred = pred[nclass+1:]
+        elif c == nclass+3:     # 30(materials) + 1(T) + 2(V)
+            T_pred = pred[nclass]   # pred里面取出第31个通道，温度T
+            v_pred = pred[nclass+1:]    # pred里面取出最后两个通道，热照明因子v
 
             # e_pred = F.softmax(e_pred, 0).squeeze()
 
         if nclass == max_n_class:
             # e_pred_ = torch.argmax(e_pred, 0, keepdim=False)
-            e_pred_ = torch.argmax(e_pred.unsqueeze(0), 1, keepdim=False)
-            e_ = e.unsqueeze(0)
+            e_pred_ = torch.argmax(e_pred.unsqueeze(0), 1, keepdim=False)   # 计算每个元素上，材料最大可能预测类别
+            e_ = e.unsqueeze(0)     # 材料GT
 
             miou = torchmetrics.classification.MulticlassJaccardIndex(num_classes=nclass)
-            val = miou(e_pred_, e_).item()
-
+            val = miou(e_pred_, e_).item()      # 预测结果 e_pred_ 和真实标签 e_ 之间的miou
+            # 数值越接近 1 表示模型预测结果与真实标签的重叠程度越高，即性能越好
             # append to the right type of metric
             if e.shape[0] == 256:
                 small_miou.append(val)
@@ -367,41 +369,50 @@ for j in range(41):     # 40 ?    Todo
 
             del miou
 
-            e_ce_error = F.cross_entropy(e_pred.unsqueeze(0), e.unsqueeze(0), reduction='none').squeeze()
+            e_ce_error = F.cross_entropy(e_pred.unsqueeze(0), e.unsqueeze(0), reduction='none').squeeze()   # 材料预测值与真实值的交叉熵
             e = e.numpy()
             e_pred = torch.argmax(e_pred, 0).squeeze().numpy()
-            e_error = (e_pred != e).astype(int)
+            e_error = (e_pred != e).astype(int)     
 
-            visualize_m(e_pred, fname=f'emap_pred_{i+j*n}.png', kind='pred')    # emap的预测
-            visualize_m(e, fname=f'emap_GT_{i+j*n}.png', kind='gt')             # emap的ground truth？
-            # print("e error", j, i, np.mean(e_error.astype(float)))
-            visualize_m_error(e_error, fname=f'emap_error_{i+j*n}.png')         # emap误差
-            visualize_m_CE(e_ce_error, fname=f'emap_CE_error_{i+j*n}.png')      # cross entropy error
-            save_m_file(e_pred, fname=f'm_pred_{i+j*n}.npy')
+            if visualize_flag :
+                visualize_m(e_pred, fname=f'emap_pred_{i+j*n}.png', kind='pred')    # emap的预测
+                visualize_m(e, fname=f'emap_GT_{i+j*n}.png', kind='gt')             # emap的GT
+                # print("e error", j, i, np.mean(e_error.astype(float)))
+                visualize_m_error(e_error, fname=f'emap_error_{i+j*n}.png')         # 每个像素上材料种类的预测误差，正确为0，错误为1
+                visualize_m_CE(e_ce_error, fname=f'emap_CE_error_{i+j*n}.png')      # emap的cross entropy error
+                # save_m_file(e_pred, fname=f'm_pred_{i+j*n}.npy')        
+
+            e_accuracy.append(np.mean(e_error)) 
 
         if T_pred is not None:
             T_pred = T_pred.squeeze().numpy()
-            visualize_T(T_pred, fname=f'Tmap_pred_{i+j*n}.png', error=False, kind='pred')   # Tmap预测值
-            visualize_T(T, fname=f'Tmap_GT_{i+j*n}.png', error=False, kind='gt')            # Tmap的ground truth
-            save_m_file(T_pred, fname=f'T_pred_{i+j*n}.npy')    
             T_error = np.abs(T-T_pred)
-            visualize_T(T_error, fname=f'Tmap_error_{i+j*n}.png', error=True)               # Tmap的误差
+
+            if visualize_flag:
+                visualize_T(T_pred, fname=f'Tmap_pred_{i+j*n}.png', error=False, kind='pred')   # Tmap预测值
+                visualize_T(T, fname=f'Tmap_GT_{i+j*n}.png', error=False, kind='gt')            # Tmap的ground truth
+                # save_m_file(T_pred, fname=f'T_pred_{i+j*n}.npy')            
+                visualize_T(T_error, fname=f'Tmap_error_{i+j*n}.png', error=True)               # Tmap的误差
+
+            T_err_mean.append(np.mean(np.abs(T_error)/np.abs(T)))
 
         if v_pred is not None:
             v_pred = v_pred.squeeze()
             v = v.squeeze()
-            v_pred = F.softmax(v_pred, 0).numpy()
-            save_m_file(v_pred, fname=f'v_pred_{i+j*n}.npy')
+            v_pred = F.softmax(v_pred, 0).numpy()   # softmax将张量的每个元素转换为0到1之间的概率值，同时确保所有元素的总和为1
+            
             v_error = np.abs(v-v_pred)
-
             v_kldiv = scsp.rel_entr(v, v_pred).sum(0)
 
-            visualize_v(v_pred, fname=f'vmap_pred_{i+j*n}.png', kind='pred')        # vmap预测值
-            visualize_v(v, fname=f'vmap_GT_{i+j*n}.png', kind='gt')                 # vmap的ground truth
-            visualize_v(v_error, fname=f'vmap_error_{i+j*n}.png', kind='l1error')   # vmap的误差
-            visualize_v(v_kldiv, fname=f'vmap_KLdiv_{i+j*n}.png', kind='kldiv')     # vmap的KL散度（相对熵）
+            if visualize_flag:
+                # save_m_file(v_pred, fname=f'v_pred_{i+j*n}.npy')    
+                visualize_v(v_pred, fname=f'vmap_pred_{i+j*n}.png', kind='pred')        # vmap预测值
+                visualize_v(v, fname=f'vmap_GT_{i+j*n}.png', kind='gt')                 # vmap的ground truth
+                visualize_v(v_error, fname=f'vmap_error_{i+j*n}.png', kind='l1error')   # vmap的误差
+                visualize_v(v_kldiv, fname=f'vmap_KLdiv_{i+j*n}.png', kind='kldiv')     # vmap的KL散度（相对熵）
+            v_kldiv_mean.append(np.mean(v_kldiv))
 
-        # Load S_pred and S_true here.
+        # Load S_pred and S_true here.          这个S_true有问题，与S_pred相差过多，且S_pred是正常的，可以正常显示图像
         S_pred = S_pred_file[i].squeeze().numpy()   
         S_true = S_true_file[i].squeeze().numpy()
         # 从thermal lighting factors V中得到texture X
@@ -412,6 +423,7 @@ for j in range(41):     # 40 ?    Todo
 
         # TeX_pred = np.concatenate((e_pred, T_pred, X_pred), 2)
         # TeX_true = np.concatenate((e, T, X_true), 2)
+        # 全体起立！ TeX成像辣！
         TeX_pred = np.dstack((e_pred, T_pred, X_pred))  # 对数组进行堆叠,TeX成像
         TeX_true = np.dstack((e, T, X_true))
         S_res = (np.log(np.abs(S_true-S_pred)))     # 计算预测值与真实值的残差
@@ -420,13 +432,29 @@ for j in range(41):     # 40 ?    Todo
         C, H, W = S_pred.shape
         S_max1 = np.maximum(np.mean(S_pred[:, :H//2]), np.mean(S_pred[:, H//2:]))
         S_max2 = np.maximum(np.mean(S_true[:, :H//2]), np.mean(S_true[:, H//2:]))
-        S_max = np.maximum(S_max1, S_max1)
-        # TeX的预测值和ground truth
-        visualize_TeX(TeX_pred, fname=f'TeX_pred_{i+j*n}.png', max_vals=[T_max, S_max], kind='pred')
-        visualize_TeX(TeX_true, fname=f'TeX_GT_{i+j*n}.png', max_vals=[T_max, S_max], kind='gt')
-        visualize_residue(i, j, S_res, fname=f'S_residue_{i+j*n}.png')  # 预测值与真实值的残差
+        S_max = np.maximum(S_max1, S_max2)
+        # S_max = np.maximum(S_max1, S_max1)
+        if visualize_flag:
+            visualize_TeX(TeX_pred, fname=f'TeX_pred_{i+j*n}.png', max_vals=[T_max, S_max], kind='pred')
+            visualize_TeX(TeX_true, fname=f'TeX_GT_{i+j*n}.png', max_vals=[T_max, S_max], kind='gt')
+            visualize_residue(i, j, S_res, fname=f'S_residue_{i+j*n}.png')  # heatcube预测值与真实值的残差
+        # np.mean(np.abs(TeX_true-TeX_pred)/np.abs(TeX_true))
 
-print("Average large mIoU", np.mean(large_miou))
+print("Average large mIoU", np.mean(large_miou))        # iou在0-1之间，越接近1表示预测结果越好
 print("Average small mIoU", np.mean(small_miou))
 print("Average synthetic mIoU", np.mean(syn_miou))
 print("Average experimental mIoU", np.mean(exp_miou))
+# accuracy
+print("e_accuracy", 1 - np.mean(e_accuracy))
+print("T_error", np.mean(T_err_mean))
+print("v_kldiv", np.mean(v_kldiv_mean))
+
+
+with open(os.path.join(DATA_DIR, 'results.txt'), 'a') as metrics:
+    metrics.write("Average large mIoU: " + f"{np.mean(large_miou)} \n")
+    metrics.write("Average small mIoU: " + f"{np.mean(small_miou)} \n")
+    metrics.write("Average synthetic mIoU: " + f"{np.mean(syn_miou)} \n")
+    metrics.write("Average experimental mIoU: " + f"{np.mean(exp_miou)} \n")
+    metrics.write("e_accuracy: " + f"{1 - np.mean(e_accuracy)} \n")
+    metrics.write("T_error: " + f"{np.mean(T_err_mean)} \n")
+    metrics.write("v_kldiv: " + f"{np.mean(v_kldiv_mean)} \n")
