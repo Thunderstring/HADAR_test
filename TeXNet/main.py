@@ -13,12 +13,14 @@ from model import SMPModel
 # from datamodule import HADARLoader
 from datamodule_newdata import HADARMultipleScenesLoader
 
-# python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 40000 --checkpoint_dir supervised_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 10 --seed 42 --unsupervised --fold 4
+# python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 40000 --checkpoint_dir supervised_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 200 --res full --batch-size 16 --seed 42 --unsupervised
 # python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 40000 --checkpoint_dir supervised_crop --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 10 --seed 42
 # python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 40000 --checkpoint_dir /mnt/Disk/zx/HADAR/test2_fold=0/4-channels --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 500 --res full --batch-size 16 --seed 42 --fold 0
 # val 
-# python TeXNet/main.py --ngpus 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 1 --checkpoint_dir /mnt/Disk/zx/HADAR/test3/25-channels_val --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 1 --res full --batch-size 16 --seed 42 --resume /mnt/Disk/zx/HADAR/test3/25-channels/lightning_logs/version_1/checkpoints/epoch=5999-step=36000.ckpt --eval -fold ?
+# python TeXNet/main.py --ngpus 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 1 --checkpoint_dir /mnt/Disk/zx/HADAR/test2_fold=0/49-channels_val --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 1 --res full --batch-size 16 --seed 42 --resume /mnt/Disk/zx/HADAR/test2_fold=0/49-channels/lightning_logs/version_1/checkpoints/epoch=38999-step=195000.ckpt --eval --fold 0
+# python TeXNet/main.py --ngpus 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 1 --checkpoint_dir /mnt/Disk/zx/HADAR/test6_loss/hybrid_loss_val --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 1 --res full --batch-size 16 --seed 42 --resume /mnt/Disk/zx/HADAR/test6_loss/hybrid_loss/lightning_logs/version_1/checkpoints/epoch=37799-step=226800.ckpt --eval --unsupervised
 
+# python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir /mnt/Disk/zx/HADAR/HADAR_database_27 --workers 8 --epochs 20000 --checkpoint_dir /mnt/Disk/zx/HADAR/test3_integral/27-channels --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 200 --res full --batch-size 16 --seed 42 --fold 0
 
 if __name__ == "__main__":
     args = parse_args()     # 解析命令行参数
@@ -96,7 +98,8 @@ if __name__ == "__main__":
                          overfit_batches=overfit_batches,       # 训练过程中用于过拟合的批次数量
                          precision=precision, # decides the use of AMP
                          sync_batchnorm=sync_bn,
-                         detect_anomaly=True,
+                         detect_anomaly=True,       # 自动微分异常监测 出现任意Nan都会引起模型报错 且速度变慢
+                        # detect_anomaly=False,           # Todo        only_S_loss
                          enable_progress_bar=True       # 启用进度条
                          )
     

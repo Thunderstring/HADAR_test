@@ -98,6 +98,8 @@ def parse_args():
                         help="whether to remove loss for e-map or not")
     p.add_argument("--unsupervised", action="store_true",
                         help="whether to train unsupervisedly or not")  # 无监督 不用标签，用文中给的材料库、plank's law 和数学结构
+    p.add_argument("--only_S_loss", action="store_true",
+                        help="only use loss_S")
 
     # checkpoint
     p.add_argument('--resume', type=str, default='',

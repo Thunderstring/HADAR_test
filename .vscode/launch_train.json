@@ -1,7 +1,5 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+
     "version": "0.2.0",
     "configurations": [
         {
@@ -13,21 +11,19 @@
             "justMyCode": false,
             "args": ["--ngpu", "1",
                 "--backbone", "resnet50",
-                "--data_dir", "/mnt/Disk/zx/HADAR/HADAR_database_27",
+                "--data_dir", "/mnt/Disk/zx/HADAR/HADAR_database_18",
                 "--workers", "8",
-                "--epochs", "1",
+                "--epochs", "40000",
                 "--checkpoint_dir","supervised_crop",
                 "--lr", "1e-3",
                 "--weight-decay", "1e-3",
                 "--train_T",
                 "--train_v",
                 "--no_log_images",
-                "--eval_every", "1",
+                "--eval_every", "500",
                 "--res", "full",
                 "--batch-size", "16",
                 "--seed", "42",
-                "--resume", "/mnt/Disk/zx/HADAR/test3_integral/27-channels/lightning_logs/version_1/checkpoints/epoch=9399-step=47000.ckpt",
-                "--eval",
                 "--fold", "0"
             ]
         }
