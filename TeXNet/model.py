@@ -56,7 +56,7 @@ class SMPModel(pl.LightningModule):
                                #   13 10 6  4  3  2  1
                                #   4  5  9  13 17 25 49   
         # 49 27 18 9
-        self.num_inp_ch = 6     # Todo  # 输入通道数 number_input_channels  
+        self.num_inp_ch = 9     # Todo  # 输入通道数 number_input_channels  
 
         # normalization values for T and S       T 和 S 的归一化值    
         # 54 channels
@@ -257,7 +257,7 @@ class SMPModel(pl.LightningModule):
             all_e = torch.transpose(all_e, 2, 3)
             all_e = all_e.to(nu.device)
             all_e = torch.cat((all_e[:,0:4,:,:], all_e), dim=1)
-            all_e = torch.cat((all_e, torch.unsqueeze(all_e[:,-1,:,:], dim=0)), dim=1)
+            all_e = torch.cat((all_e, torch.unsqueeze(all_e[:,-1,:,:], dim=1)), dim=1)
 
             S1 = all_e * self.BBp(nu.reshape(1, 54, 1, 1), (T_pred + 273.15))
             # 在此处把S1单独叠加       
@@ -274,6 +274,7 @@ class SMPModel(pl.LightningModule):
             # tail = torch.unsqueeze(summed_lists[-1], dim=0)
             # summed_lists = torch.cat((summed_lists, tail), dim=0)
             S1 = summed_lists.unsqueeze(0)
+            S1 = S1.view(batchsize, self.num_inp_ch, h, w)
 
         else:
             S1 = emi_val * self.BBp(nu.reshape(1, self.num_inp_ch, 1, 1), (T_pred + 273.15)) # 计算自身辐射S1（第一部分）
@@ -404,7 +405,7 @@ class SMPModel(pl.LightningModule):
         
         e_pred = torch.argmax(e_pred, 1, keepdim=False).type(torch.long)
 
-        if T_pred is None:
+        if T_pred is None:              # 如果不训练T和v，则直接赋值T和v的GT
             T_pred = t
         if v_pred is None:
             v_pred = v
@@ -438,15 +439,16 @@ class SMPModel(pl.LightningModule):
         if not self.no_v_loss and self.train_v:
             loss1 = loss1+loss_v
 
-        if self.unsupervised:
-            loss = (1-self.eta)*loss1+(self.eta)*(self.beta)*loss_S     # beta是1，eta是各种loss的权重？文章里是0.5
+        if self.unsupervised:   # Todo
+            loss = (1-self.eta)*loss1+(self.eta)*(self.beta)*loss_S     # beta是1，eta是各种loss的权重？文章里是0.5 
+            # loss = loss1 + loss_S       
+        elif self.only_S_loss:
+            loss = loss_S  
         else:
             loss = loss1     # loss1是supervised的loss(由预测的T_pred,e_pred,v_pred和GT得到的loss)
                              # loss_S是unsupervised的loss（通过预测的S_pred与真实值img计算得到的loss）
                              # S_pred也由T_pred,e_pred,v_pred计算得到
-             
-        if self.only_S_loss:
-            loss = loss_S       
+     
         train_step_out = {'loss': loss}       
 
 
@@ -643,8 +645,9 @@ class SMPModel(pl.LightningModule):
         if not self.no_v_loss and self.train_v:
             loss1 = loss1+loss_v
 
-        if self.unsupervised:
+        if self.unsupervised:       # Todo
             loss = (1-self.eta)*loss1+(self.eta)*(self.beta)*loss_S
+            # loss = loss1 + loss_S
         else:
             loss = loss1
 

@@ -141,7 +141,7 @@ class HADARMultipleScenes():
 
         ######################### Synthetic data ###############################   
         # 高光谱数据heatcubes中每个通道的均值和标准差
-        self.channels = 6      # 共54个channels 合成后分别有 54 27 18 9 6   Todo
+        self.channels = 9      # 共54个channels 合成后分别有 54 27 18 9 6   Todo
         # 54channels
         if self.channels == 54:
             self.S_mu = np.array([0.12647585, 0.12525924, 0.12395189, 0.12230065, 0.12088306, 0.11962758,
@@ -203,8 +203,6 @@ class HADARMultipleScenes():
 
         self.slice2 = slice(None, None) # for Scene11
 
-        # self.slice1 = slice(4, 53, 6)           
-        # self.slice2 = slice(None, None, 6)
 
         # 将self.S_mu转换为形状(54，1，1)，然后对其进行切片,取4到52，49个通道
         self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[self.slice1]       

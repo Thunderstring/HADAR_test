@@ -21,7 +21,7 @@ from datamodule_newdata import HADARMultipleScenesLoader
 # python TeXNet/main.py --ngpus 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 1 --checkpoint_dir /mnt/Disk/zx/HADAR/test6_loss/hybrid_loss_val --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 1 --res full --batch-size 16 --seed 42 --resume /mnt/Disk/zx/HADAR/test6_loss/hybrid_loss/lightning_logs/version_1/checkpoints/epoch=37799-step=226800.ckpt --eval --unsupervised
 
 # python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir /mnt/Disk/zx/HADAR/HADAR_database_27 --workers 8 --epochs 20000 --checkpoint_dir /mnt/Disk/zx/HADAR/test3_integral/27-channels --lr 1e-3 --weight-decay 1e-3 --train_T --train_v --no_log_images --eval_every 200 --res full --batch-size 16 --seed 42 --fold 0
-
+# python TeXNet/main.py --ngpu 1 --backbone resnet50 --data_dir ~/workspace/zx/HADAR_database/ --workers 8 --epochs 40000 --checkpoint_dir /mnt/Disk/zx/HADAR/test6_loss/unsupervised_loss --lr 1e-3 --weight-decay 1e-3 --no_log_images --eval_every 200 --res full --batch-size 16 --seed 42 --train_T --train_v --no_T_loss --no_v_loss --unsupervised
 if __name__ == "__main__":
     args = parse_args()     # 解析命令行参数
 
@@ -78,8 +78,8 @@ if __name__ == "__main__":
         callback_list.append(swa)
 
     trainer = pl.Trainer(
-                        #  devices=[1],   # 如果要用卡1     # Todo
-                         devices=args.ngpus,
+                         devices=[1],   # 如果要用卡1     # Todo
+                        #  devices=args.ngpus,
                         
                          strategy='ddp_find_unused_parameters_false',   # 分布式训练策略设置为 DistributedDataParallel（DDP），确保训练过程中不会忽略未使用的参数。
                          accelerator="gpu",
