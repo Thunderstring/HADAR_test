@@ -16,11 +16,11 @@ import torchmetrics
 # visualization results in OUT_DIR
 
 
-DATA_DIR = '/mnt/Disk/zx/HADAR/test2_sample/13-channels_val'
-# OUT_DIR = DATA_DIR+'/visualized'
-OUT_DIR = '/mnt/Disk/zx/HADAR/test2_sample/New-visualized/13-channels'
+DATA_DIR = '/mnt/Disk/zx/HADAR/test5_Scene_val/Scene11_val'
+OUT_DIR = DATA_DIR+'/visualized'
+# OUT_DIR = '/mnt/Disk/zx/HADAR/test2_sample/New-visualized/13-channels'
 
-num_files = 42
+num_files = 8
 visualize_flag = True
 # visualize_flag = False
 
