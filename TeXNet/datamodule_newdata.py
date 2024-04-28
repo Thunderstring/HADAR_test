@@ -25,14 +25,14 @@ class HADARMultipleScenes():
         print("Fold is", fold, "for split", split)   # 第几个文件夹用来train, val or test
         # we manually split the database, instead of randomly splitting, to ensure the same diversity of the validation set and training set
         if fold is None:
-            train_ids = [f"L_{i:04d}" for i in range(2, 5)]
-            train_ids += [f"R_{i:04d}" for i in range(2, 5)]
+            train_ids = [f"L_{i:04d}" for i in range(1, 6)]
+            train_ids += [f"R_{i:04d}" for i in range(1, 6)]
             val_ids = ["L_0001", "R_0001"] # one fresh sample and one sample from training set.
             test_ids = ["L_0001", "R_0001"]  
             # train_exp_ids = train_ids.copy()
             # val_exp_ids = ["L_0001", "R_0001"] # one fresh sample and one sample from training set.
             # test_exp_ids = ["L_0001", "R_0001"]
-            train_exp_ids = ["0002", "0003", "0004"]
+            train_exp_ids = ["0001", "0002", "0003", "0004"]
             val_exp_ids = ["0001"] 
             test_exp_ids = ["0001"]
         elif fold == 0:
@@ -173,8 +173,8 @@ class HADARMultipleScenes():
 
         # self.slice1 = slice(4,53)  # for Scene1-10
         # self.slice2 = slice(None, None) # for Scene11
-        self.slice1 = slice(4, 53, 6)           # Todo
-        self.slice2 = slice(None, None, 6)
+        self.slice1 = slice(4, 53, 2)           # Todo
+        self.slice2 = slice(None, None, 2)
 
         # 将self.S_mu转换为形状(54，1，1)，然后对其进行切片,取4到52，49个通道
         self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[self.slice1]       
