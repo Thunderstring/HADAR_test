@@ -74,8 +74,8 @@ if __name__ == "__main__":
         callback_list.append(swa)
 
     trainer = pl.Trainer(
-                         devices=[1],   # 如果要用卡1     # Todo
-                        #  devices=args.ngpus,
+                        #  devices=[1],   # 如果要用卡1     # Todo
+                         devices=args.ngpus,
                         
                          strategy='ddp_find_unused_parameters_false',   # 分布式训练策略设置为 DistributedDataParallel（DDP），确保训练过程中不会忽略未使用的参数。
                          accelerator="gpu",

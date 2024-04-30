@@ -15,27 +15,25 @@ import torchmetrics
 # Give data location (folder name) in DATA_DIR and
 # visualization results in OUT_DIR
 
-# if len(sys.argv) == 1:
-#     DATA_DIR = 'supervised'
-# else:
-#     DATA_DIR = sys.argv[1]
 
-# DATA_DIR = 'supervised_crop'
-# OUT_DIR = DATA_DIR+'_visualized'
-
-DATA_DIR = '/mnt/Disk/zx/HADAR/test2_fold=0/9-channels_val'
+DATA_DIR = '/mnt/Disk/zx/HADAR/test2_sample_hybrid/5-channels_val3'
 OUT_DIR = DATA_DIR+'/visualized'
+# OUT_DIR = '/mnt/Disk/zx/HADAR/test2_sample/New-visualized/13-channels'
+
+num_files = 42
+visualize_flag = True
+# visualize_flag = False
 
 max_n_class = 30
-T_max = 70
+# T_max = 70
 
 e_accuracy = []
 T_err_mean = []
 v_kldiv_mean = []
+v_error_mean = []
+S_error = []
 
-num_files = 41
-visualize_flag = True
-# visualize_flag = False
+
 
 if visualize_flag:
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -51,7 +49,7 @@ def get_X_from_V(S, v):
 
     return X
 
-def visualize_TeX(TeX, fname, max_vals, kind='pred'):
+def visualize_TeX(TeX, fname, max_vals, kind='pred'):       # 这个可视化的还是TeX
     T_max = max_vals[0]
     S_max = max_vals[1]
     assert len(TeX.shape) == 3
@@ -80,11 +78,16 @@ def visualize_TeX(TeX, fname, max_vals, kind='pred'):
 
     return
 
-def visualize_residue(i, j, res, fname):
+def visualize_residue(i, j, res, fname, kind = 'S_residue'):
     # Need to normalize each value of TeX to [0, 1]
 
     img = np.squeeze(np.linalg.norm(res, axis=0))
-    # np.save(OUT_DIR+'/'+f'residue_{i+j}_no_rescale.npy', img)
+    if kind == 'S_residue':
+        np.save(OUT_DIR+'/'+f'residue_{i+j}_no_rescale.npy', img)
+    elif kind == 'S_True':
+        np.save(OUT_DIR+'/'+f'S_True_{i+j}_no_rescale.npy', img)
+    elif kind == 'S_pred':
+        np.save(OUT_DIR+'/'+f'S_pred_{i+j}_no_rescale.npy', img)
     img = img_as_float(np.squeeze(np.linalg.norm(res, axis=0)))/255.0
     # print(np.max(img))
 
@@ -92,7 +95,7 @@ def visualize_residue(i, j, res, fname):
 
     # np.save(f'residue_{i}_no_rescale.npy', img)
     plt.imshow(img_adapteq)
-    plt.title('residue')
+    plt.title(kind)
     plt.axis('off')
     plt.colorbar()
     plt.clim(0,1)
@@ -124,7 +127,7 @@ def visualize_T(data, fname, error=False, kind='pred'):
     else:
         plt.title('L1 error in temperature prediction')
     plt.axis('off')
-    plt.colorbar()
+    plt.colorbar(shrink=0.5)
     plt.savefig(os.path.join(OUT_DIR, fname))
     plt.close()
 
@@ -269,11 +272,13 @@ def visualize_v(data, fname, kind='pred'):
         im = ax[0].imshow(v1, vmin=0., vmax=vmax, cmap='turbo')
         ax[0].axis('off')
         ax[0].set_title('v1')
+        # plt.colorbar(im, ax=ax[0],shrink=0.5)
         plt.colorbar(im, ax=ax[0])
 
         im = ax[1].imshow(v2, vmin=0., vmax=vmax, cmap='turbo')
         ax[1].axis('off')
         ax[1].set_title('v2')
+        # plt.colorbar(im, ax=ax[1],shrink=0.5)
         plt.colorbar(im, ax=ax[1])
 
         #im = ax[1, 0].imshow(v3, vmin=0., vmax=vmax, cmap='turbo')
@@ -312,7 +317,7 @@ exp_miou = []
 
 print("folder: ", DATA_DIR)
 
-for j in trange(num_files):     # 41 ?    Todo  why 41?   
+for j in trange(num_files):     # 42 ?    why 42?   Scene1-10 的L、R两张，L、R的crop，Scene11 一张原图和crop用于val
     # 此.pt文件保存的是t,e,v,pred,S_pred,img(true)数据（裁剪后）
     T_file = torch.load(os.path.join(DATA_DIR, f'val_T_{j}.pt'), map_location='cpu')    # [1, 1, 256, 256]  e,T,v_ground truth
     e_file = torch.load(os.path.join(DATA_DIR, f'val_e_{j}.pt'), map_location='cpu')    # [1, 256, 256]
@@ -380,7 +385,7 @@ for j in trange(num_files):     # 41 ?    Todo  why 41?
                 # print("e error", j, i, np.mean(e_error.astype(float)))
                 visualize_m_error(e_error, fname=f'emap_error_{i+j*n}.png')         # 每个像素上材料种类的预测误差，正确为0，错误为1
                 visualize_m_CE(e_ce_error, fname=f'emap_CE_error_{i+j*n}.png')      # emap的cross entropy error
-                # save_m_file(e_pred, fname=f'm_pred_{i+j*n}.npy')        
+                save_m_file(e_pred, fname=f'm_pred_{i+j*n}.npy')        
 
             e_accuracy.append(np.mean(e_error)) 
 
@@ -391,10 +396,11 @@ for j in trange(num_files):     # 41 ?    Todo  why 41?
             if visualize_flag:
                 visualize_T(T_pred, fname=f'Tmap_pred_{i+j*n}.png', error=False, kind='pred')   # Tmap预测值
                 visualize_T(T, fname=f'Tmap_GT_{i+j*n}.png', error=False, kind='gt')            # Tmap的ground truth
-                # save_m_file(T_pred, fname=f'T_pred_{i+j*n}.npy')            
+                save_m_file(T_pred, fname=f'T_pred_{i+j*n}.npy')            
                 visualize_T(T_error, fname=f'Tmap_error_{i+j*n}.png', error=True)               # Tmap的误差
 
-            T_err_mean.append(np.mean(np.abs(T_error)/np.abs(T)))
+            # T_err_mean.append(np.mean(np.abs(T_error)/np.abs(T)))
+            T_err_mean.append(np.mean(np.abs(T_error)))   # 用L1 error
 
         if v_pred is not None:
             v_pred = v_pred.squeeze()
@@ -405,12 +411,13 @@ for j in trange(num_files):     # 41 ?    Todo  why 41?
             v_kldiv = scsp.rel_entr(v, v_pred).sum(0)
 
             if visualize_flag:
-                # save_m_file(v_pred, fname=f'v_pred_{i+j*n}.npy')    
+                save_m_file(v_pred, fname=f'v_pred_{i+j*n}.npy')    
                 visualize_v(v_pred, fname=f'vmap_pred_{i+j*n}.png', kind='pred')        # vmap预测值
                 visualize_v(v, fname=f'vmap_GT_{i+j*n}.png', kind='gt')                 # vmap的ground truth
                 visualize_v(v_error, fname=f'vmap_error_{i+j*n}.png', kind='l1error')   # vmap的误差
                 visualize_v(v_kldiv, fname=f'vmap_KLdiv_{i+j*n}.png', kind='kldiv')     # vmap的KL散度（相对熵）
-            v_kldiv_mean.append(np.mean(v_kldiv))
+            v_kldiv_mean.append(np.mean(v_kldiv)) 
+            v_error_mean.append(np.mean(v_error))
 
         # Load S_pred and S_true here.          这个S_true有问题，与S_pred相差过多，且S_pred是正常的，可以正常显示图像
         S_pred = S_pred_file[i].squeeze().numpy()   
@@ -426,35 +433,64 @@ for j in trange(num_files):     # 41 ?    Todo  why 41?
         # 全体起立！ TeX成像辣！
         TeX_pred = np.dstack((e_pred, T_pred, X_pred))  # 对数组进行堆叠,TeX成像
         TeX_true = np.dstack((e, T, X_true))
-        S_res = (np.log(np.abs(S_true-S_pred)))     # 计算预测值与真实值的残差
 
-        T_max = np.max(np.maximum(T, T_pred))
+        # Todo
+        S_res = (np.log(np.abs(S_true-S_pred)))     # 计算预测值与真实值的残差    归一化后的img（很大）和没归一化的S_pred（很小），相减后还是img，所以可能错误在这      
+        
+        # TeX Vision是根据S_res算出来的！！！把S_res作为Xmap 我真的是服了
+        # TeXnet的visualization需要归一化后的S_pred_，因为输入的img也是归一化后的
+        # TeX Vision需要归一化后的img（很大）和没归一化的S_pred（很小），相减后还是img，所以可能错误在这，TeX Vision明明是直接用归一化后的img去做了TeX Vision
+        # 可是按他这么来就是有纹理，如果只用S_pred的话，第一个场景的人就没纹理
+        # 可是27channels的用S_pred，第一个场景的人就有纹理 ，49channels的就没有，真玄学
+        # 这得好好看看，不知道改得对不对，按理说归一化就应该都归一化
+
+        # 若用归一化后的S_true-S_pred相减，也可以得到TeXvision，只不过很多噪点，看来确实是相减的resmap有纹理，看一下论文咋说的，把原理搞懂
+        # 看一下论文吧，把resmap搞懂
+
+        # T_max = np.max(np.maximum(T, T_pred))
+        T_max1 = np.max(T_pred)
+        T_max2 = np.max(T)
         C, H, W = S_pred.shape
         S_max1 = np.maximum(np.mean(S_pred[:, :H//2]), np.mean(S_pred[:, H//2:]))
         S_max2 = np.maximum(np.mean(S_true[:, :H//2]), np.mean(S_true[:, H//2:]))
-        S_max = np.maximum(S_max1, S_max2)
+
+        # S_error.append(np.mean(np.abs(S_true-S_pred)/np.abs(S_true)))
+        S_error.append(np.mean(np.abs(S_true-S_pred)))      # L1 误差
+
+        # S_max = np.maximum(S_max1, S_max2)
         # S_max = np.maximum(S_max1, S_max1)
+        # S_max = np.maximum(S_max2, S_max2)
+
         if visualize_flag:
-            visualize_TeX(TeX_pred, fname=f'TeX_pred_{i+j*n}.png', max_vals=[T_max, S_max], kind='pred')
-            visualize_TeX(TeX_true, fname=f'TeX_GT_{i+j*n}.png', max_vals=[T_max, S_max], kind='gt')
-            visualize_residue(i, j, S_res, fname=f'S_residue_{i+j*n}.png')  # heatcube预测值与真实值的残差
-        # np.mean(np.abs(TeX_true-TeX_pred)/np.abs(TeX_true))
+            # visualize_TeX(TeX_pred, fname=f'TeX_pred_{i+j*n}.png', max_vals=[T_max, S_max], kind='pred')
+            # visualize_TeX(TeX_true, fname=f'TeX_GT_{i+j*n}.png', max_vals=[T_max, S_max], kind='gt')
+            visualize_TeX(TeX_pred, fname=f'TeX_pred_{i+j*n}.png', max_vals=[T_max1, S_max1], kind='pred')
+            visualize_TeX(TeX_true, fname=f'TeX_GT_{i+j*n}.png', max_vals=[T_max2, S_max2], kind='gt')
+            visualize_residue(i, j, S_true, fname=f'S_true_{i+j*n}.png', kind = 'S_True')
+            visualize_residue(i, j, S_pred, fname=f'S_pred_{i+j*n}.png', kind = 'S_pred')
+            visualize_residue(i, j, S_res, fname=f'S_residue_{i+j*n}.png',kind = 'S_residue')  # heatcube预测值与真实值的残差
+
 
 print("Average large mIoU", np.mean(large_miou))        # iou在0-1之间，越接近1表示预测结果越好
 print("Average small mIoU", np.mean(small_miou))
 print("Average synthetic mIoU", np.mean(syn_miou))
 print("Average experimental mIoU", np.mean(exp_miou))
 # accuracy
-print("e_accuracy", 1 - np.mean(e_accuracy))
+print("e_error", np.mean(e_accuracy))
 print("T_error", np.mean(T_err_mean))
 print("v_kldiv", np.mean(v_kldiv_mean))
+print("v_error", np.mean(v_error_mean))
+print("S_error", np.mean(S_error))
 
 
 with open(os.path.join(DATA_DIR, 'results.txt'), 'a') as metrics:
-    metrics.write("Average large mIoU: " + f"{np.mean(large_miou)} \n")
-    metrics.write("Average small mIoU: " + f"{np.mean(small_miou)} \n")
-    metrics.write("Average synthetic mIoU: " + f"{np.mean(syn_miou)} \n")
-    metrics.write("Average experimental mIoU: " + f"{np.mean(exp_miou)} \n")
-    metrics.write("e_accuracy: " + f"{1 - np.mean(e_accuracy)} \n")
+    metrics.write("\n")
+    # metrics.write("Average large mIoU: " + f"{np.mean(large_miou)} \n")
+    # metrics.write("Average small mIoU: " + f"{np.mean(small_miou)} \n")
+    # metrics.write("Average synthetic mIoU: " + f"{np.mean(syn_miou)} \n")
+    # metrics.write("Average experimental mIoU: " + f"{np.mean(exp_miou)} \n")
+    metrics.write("e_error: " + f"{np.mean(e_accuracy)} \n")
     metrics.write("T_error: " + f"{np.mean(T_err_mean)} \n")
     metrics.write("v_kldiv: " + f"{np.mean(v_kldiv_mean)} \n")
+    metrics.write("v_error: " + f"{np.mean(v_error_mean)} \n")
+    metrics.write("S_error: " + f"{np.mean(S_error)} \n")

@@ -173,8 +173,8 @@ class HADARMultipleScenes():
 
         # self.slice1 = slice(4,53)  # for Scene1-10
         # self.slice2 = slice(None, None) # for Scene11
-        self.slice1 = slice(4, 53, 2)           # Todo
-        self.slice2 = slice(None, None, 2)
+        self.slice1 = slice(4, 53, 10)           # Todo
+        self.slice2 = slice(None, None, 10)
 
         # 将self.S_mu转换为形状(54，1，1)，然后对其进行切片,取4到52，49个通道
         self.S_mu = np.reshape(self.S_mu, (-1, 1, 1))[self.slice1]       

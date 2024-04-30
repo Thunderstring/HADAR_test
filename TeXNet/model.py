@@ -47,10 +47,10 @@ class SMPModel(pl.LightningModule):
 
         # self.slice1 = slice(4, 53)  # for Scene1-10     # Todo
         # self.slice2 = slice(None, None) # for Scene11
-        self.slice1 = slice(4, 53, 2) 
-        self.slice2 = slice(None, None, 2)
+        self.slice1 = slice(4, 53, 10) 
+        self.slice2 = slice(None, None, 10)
                                #   13 10 6  4  3  2  1
-        self.num_inp_ch = 25   #   4  5  9  13 17 25 49      # Todo  # 输入通道数 number_input_channels  
+        self.num_inp_ch = 5   #   4  5  9  13 17 25 49      # Todo  # 输入通道数 number_input_channels  
 
         # normalization values for T and S       T 和 S 的归一化值
         self.mu = torch.tensor([0.12647585, 0.12525924, 0.12395189, 0.12230065, 0.12088306, 0.11962758,
